@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers import Conv2DTranspose, BatchNormalization, Flatten, Dropout, LayerNormalization
-
+from tensorflow.keras.layers import Dense, LeakyReLU, Conv2D, Reshape
 
 from kaggle_secrets import UserSecretsClient
 user_secrets = UserSecretsClient()
