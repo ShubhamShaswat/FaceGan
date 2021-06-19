@@ -1,55 +1,40 @@
-# %% [code]
 import tensorflow as tf
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-#test for branch wgan
+from tensorflow.keras.layers import Conv2DTranspose, BatchNormalization, Flatten, Dropout, LayerNormalization
 
-# %% [code]
 
-# %% [code]
 from kaggle_secrets import UserSecretsClient
 user_secrets = UserSecretsClient()
 user_credential = user_secrets.get_gcloud_credential()
 user_secrets.set_tensorflow_credential(user_credential)
 
-
 #get GSC path
 from kaggle_datasets import KaggleDatasets
 GCS_DS_PATH = KaggleDatasets().get_gcs_path()
 
-# %% [code]
-GCS_DS_PATH
-
-# %% [code]
 '''
 from google.cloud import storage
 
 STORAGE_CLIENT = storage.Client(project='burnished-edge-278511')
 '''
 
-# %% [code]
 #GCS_DS_PATH
 
-# %% [code]
 #!gsutil ls $GCS_DS_PATH
 
-# %% [code]
 # detect and init the TPU
 
 
 tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
-
 if tpu:
     tf.config.experimental_connect_to_cluster(tpu)
     tf.tpu.experimental.initialize_tpu_system(tpu)
-
     # instantiate a distribution strategy
     tpu_strategy = tf.distribute.experimental.TPUStrategy(tpu)
-
     print("Number of accelerators: ", tpu_strategy.num_replicas_in_sync)
 
-# %% [code]
 IMAGE_SIZE = [64,64]
 
 
@@ -66,14 +51,12 @@ def _parse_image_function(example_proto):
 
   return image
 
-
 def decode_image(image_data):
     image = tf.image.decode_jpeg(image_data, channels=3)
     image = tf.cast(image, tf.float32) / 255.0  # convert image to floats in [0, 1] range
     image = tf.image.resize(image,[*IMAGE_SIZE])
     return image
 
-# %% [code]
 def view_image(ds):
     image = next(iter(ds)) # extract 1 batch from the dataset
     image = image.numpy()
@@ -83,7 +66,6 @@ def view_image(ds):
         ax = fig.add_subplot(4, 5, i+1, xticks=[], yticks=[])
         ax.imshow(image[i])
 
-# %% [code]
 if not tpu:
     AUTO = tf.data.experimental.AUTOTUNE
     BATCH_SIZE = 128
@@ -106,13 +88,7 @@ if not tpu:
     #show images 
     view_image(dataset)
 
-# %% [code]
-
-
-# %% [code]
-
-
-# %% [code]
+"""
 #create a discriminator model with LayerNormalization
 from tensorflow.keras.layers import Conv2DTranspose, BatchNormalization, Dense, LeakyReLU, Conv2D, Reshape, Flatten, Dropout, LayerNormalization
 
@@ -167,14 +143,12 @@ class Discriminator(tf.keras.Model):
 
     return x
 
-# %% [code]
 #create a discriminator model with BatchNormalization
 from tensorflow.keras.layers import Conv2DTranspose, BatchNormalization, Dense, LeakyReLU, Conv2D, Reshape, Flatten, Dropout, LayerNormalization
 
-
-
-#define discriminator
-
+"""
+#------------------------------MODELS--------------------------------------------------------------
+#define Discriminator
 class make_disc_block(tf.keras.Model):
     def __init__(self,filters,kernel_size,strides):
         super(make_disc_block,self).__init__()
@@ -195,9 +169,7 @@ class make_disc_block(tf.keras.Model):
         x = self.leaky_relu(x)
         return x
 
-
 class Discriminator(tf.keras.Model):
-
   def __init__(self,nodes=256*4*4):
     super(Discriminator,self).__init__()
     
@@ -225,11 +197,7 @@ class Discriminator(tf.keras.Model):
 
     return x
 
-# %% [code]
-#define generator
-from tensorflow.keras.layers import Conv2DTranspose, BatchNormalization, Dense, LeakyReLU, Conv2D, Reshape
-
-
+#define Generator
 class make_generator_block(tf.keras.Model):
     
   def __init__(self,filters,kernel_size=(5,5),strides=(2,2)):
@@ -279,30 +247,8 @@ class Generator(tf.keras.Model):
     out = self.conv2d_transpose_final(z)
     return out
 
-# %% [code]
-#test generator
-noise = tf.random.normal([1,100])
-gen = Generator()
-gen_img = gen(noise)
 
-print(gen_img.shape)
-
-# %% [code]
-#temporary shape check
-
-disc = Discriminator()
-timg = tf.random.normal([2,64,64,3])
-_output = disc(timg)
-
-tf.nn.compute_average_loss(_output, global_batch_size=2)
-
-# %% [code]
-_output
-
-# %% [code]
-#define custom loss function
-
-# %% [code]
+#------------------------------------------------------------DATASET---------------------------------
 AUTO = tf.data.experimental.AUTOTUNE
 #BATCH_SIZE = 4096
 def get_dataset(batch_size):
@@ -321,18 +267,15 @@ def get_dataset(batch_size):
     
     return dataset
 
-# %% [code]
-#define optimizwr
-#g_opt = tf.keras.optimizers.Adam(1e-4)
-#d_opt = tf.keras.optimizers.Adam(1e-4)
-
-# %% [code]
 checkpoint_dir = 'gs://celeba_bucket/training_checkpoints_april_2'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 
-# %% [code]
+#---------------------------------------------LOSS-------------------------------------------------------
+#define custom loss function
+
 #let's write a Wasserstein loss
 
+"""
 def critic_loss(real_output,fake_output):
     loss = real_output - fake_output
     return tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
@@ -342,7 +285,6 @@ def gen_loss(fake_output):
     loss = -1 * fake_output
     return tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
 
-# %% [code]
 #Critic Loss
 class CriticLoss(object):
     """ Criric Loss """
@@ -360,57 +302,9 @@ class CriticLoss(object):
         #final discriminator loss
         d_loss += self.gp_lambda * grad_penalty
         return d_loss
+"""
 
 
-# %% [code]
-BATCH_SIZE = 10
-
-x = tf.random.uniform([10,64,64,3])
-z = tf.random.uniform([10,100])
-
-#define gen and disc
-
-D = Discriminator()
-G = Generator()
-
-real,fake = D(x), D(G(z))
-#t = tf.random.uniform([BATCH_SIZE,1,1,1])
-#interpolated = G(z)*t + (1-t)*x
-
-loss = CriticLoss()
-print(loss(D,real,fake,interpolated))
-
-# %% [code]
-##test WGAN loss
-
-BATCH_SIZE = 10
-
-x = tf.random.uniform([10,64,64,3])
-z = tf.random.uniform([10,100])
-
-#define gen and disc
-
-D = Discriminator()
-G = Generator()
-
-real,fake = D(x), D(G(z))
-
-
-print(critic_loss(real,fake))
-print(fake)
-t = tf.random.uniform([BATCH_SIZE,1,1,1])
-interpolated = G(z)*t + (1-t)*x
-
-@tf.function
-def example():
-    grads =  tf.gradients(ys=D(interpolated),xs=[interpolated,])
-    return  grads
-grads = example()
-grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(grads),axis=[1,2,3]))
-gradient_penality = tf.reduce_mean(tf.square(grad_l2 - 1.0))
-print("Interpolated = " , tf.reduce_sum(real) - tf.reduce_sum(fake) + (10 * gradient_penality))
-
-# %% [code]
 #Critic Loss
 class CriticLoss(object):
     """ Criric Loss """
@@ -436,89 +330,13 @@ class GeneratorLoss(object):
         return tf.reduce_mean(-Dx_hat)
 
 
-# %% [code]
+#----------------------------------TRAINING STEP-------------------------------------------------
 
-# instantiating the model in the strategy scope creates the model on the TPU
-######DON"T DELETE THIS ########
-EPOCHS = 1000
-BATCH_SIZE = 4096
-STEPS_PER_TPU_CALL = 202599 // BATCH_SIZE
-STEPS_PER_EPOCH = 202599 // BATCH_SIZE
 
-with tpu_strategy.scope():
-    
-    #define model
-    generator = Generator()
-    discriminator = Discriminator()
-    
-    #define optimizers
-    g_opt = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5) #0.0001
-    d_opt = tf.keras.optimizers.Adam(learning_rate=0.0001, beta_1=0.5) #0.0001
-    
-    
-    #define loss 
-    gen_loss = tf.keras.metrics.Mean(name='gen_loss')
-    disc_loss = tf.keras.metrics.Mean(name='disc_loss')
-
-    cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True,reduction=tf.keras.losses.Reduction.NONE)
-    def discriminator_loss(real_output, fake_output):
-        real_loss = cross_entropy(tf.ones_like(real_output), real_output)
-        fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
-        total_loss = real_loss + fake_loss
-        return tf.nn.compute_average_loss(total_loss, global_batch_size=BATCH_SIZE)
-    
-    def generator_loss(fake_output):
-        gen_loss = cross_entropy(tf.ones_like(fake_output), fake_output)
-        return tf.nn.compute_average_loss(gen_loss, global_batch_size=BATCH_SIZE)
-    
-    #define checkpoints
-    checkpoint = tf.train.Checkpoint(generator_optimizer=g_opt,
-                                 discriminator_optimizer=d_opt,
-                                 generator=generator,
-                                 discriminator=discriminator)
-    
-
-per_replica_batch_size =  BATCH_SIZE // tpu_strategy.num_replicas_in_sync
-
-train_dataset = tpu_strategy.experimental_distribute_datasets_from_function(lambda _:get_dataset(per_replica_batch_size))
-
-#define a train step
-
-@tf.function
-def train_step(iterator):
-    
-    def step_fn(x):
-        """The computation to run on each TPU device."""
-        z = tf.random.normal([per_replica_batch_size,100])
-
-        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            #get generator loss
-            Dx = discriminator(x,training=True)
-            Gz = generator(z,training=True)
-            DGz = discriminator(Gz,training=True)
-
-            g_loss = generator_loss(DGz) # In WGAN replace this gen_loss
-            
-            #get discriminator loss
-            d_loss = discriminator_loss(Dx,DGz) #In WGAN replace this with ciritic_loss
-
-        gradients_of_generator = gen_tape.gradient(g_loss, generator.trainable_variables)
-        gradients_of_discriminator = disc_tape.gradient(d_loss, discriminator.trainable_variables)
-
-        g_opt.apply_gradients(zip(gradients_of_generator,generator.trainable_variables))
-        d_opt.apply_gradients(zip(gradients_of_discriminator,discriminator.trainable_variables))
-        
-        gen_loss.update_state(g_loss * tpu_strategy.num_replicas_in_sync) # * tpu_strategy.num_replicas_in_sync 
-        disc_loss.update_state(d_loss * tpu_strategy.num_replicas_in_sync )
-        
-   
-    tpu_strategy.run(step_fn, args = (next(iterator),))
-
-# %% [code]
 # instantiating the model in the strategy scope creates the model on the TPU
 ######FOR WGAN #######
 
-EPOCHS = 20
+EPOCHS = 100
 BATCH_SIZE = 4096
 STEPS_PER_TPU_CALL = 202599 // BATCH_SIZE
 STEPS_PER_EPOCH = 202599 // BATCH_SIZE
@@ -608,7 +426,7 @@ def train_step(iterator):
    
     tpu_strategy.run(step_fn, args = (next(iterator),))
 
-# %% [code]
+"""
 ckpt_path = 'gs://celeba_bucket/training_checkpoints_april_2'
 manager = tf.train.CheckpointManager(checkpoint, ckpt_path, max_to_keep=3)
 checkpoint.restore(manager.latest_checkpoint)
@@ -616,12 +434,12 @@ if manager.latest_checkpoint:
     print("Restored from {}".format(manager.latest_checkpoint))
 else:
     print("Initializing from scratch.")
+"""
 
-# %% [code]
+#-------------------------------------------------TRAINING-----------------------------------
 #define train
 import IPython.display as display
 import time
-
 
 gen_loss_hist = []
 disc_loss_hist = []
@@ -661,26 +479,21 @@ def train(dataset):
     #reset loss states
     gen_loss.reset_states()
     disc_loss.reset_states()
-
-# %% [code]
+#---------------------------------------------------------------------------------------------------------------
 train(train_dataset)
 
-# %% [code]
 plt.plot(gen_loss_hist,label="Gen")
 plt.plot(disc_loss_hist,label="Disc")
 plt.legend(loc='upper right')
 plt.show()
-
-# %% [code]
+"""
 tf.saved_model.save(
     generator, 'gs://celeba_bucket/saved_model_april_2/my_model',
     signatures=generator.call.get_concrete_function(
         tf.TensorSpec(shape=[None, 100], dtype=tf.float32, name="inp")))
 
-# %% [code]
 sda
 
-# %% [code]
 n=16
 seed = tf.random.normal([n,100])
 generated_samples = generator(seed)
@@ -693,7 +506,6 @@ for i in range(n):
 
 plt.show()
 
-# %% [code]
 n=4
 
 fname = ['gs://celeba_bucket/training_checkpoints_april/ckpt-1',
@@ -721,7 +533,6 @@ for c in range(len(fname)):
 
     plt.show()
 
-# %% [code]
 #custom training loop
 
 import IPython.display as display
@@ -763,15 +574,12 @@ while True:
     if epoch >= EPOCHS:
         break
 
-# %% [code]
 train(train_dataset)
 
-# %% [code]
 !ls
 
-# %% [code]
 !zip -r filename.zip saved_model
 
-# %% [code]
 from IPython.display import FileLink
 FileLink(r'filename.zip')
+"""
