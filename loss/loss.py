@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow.python.keras.utils import losses_utils
 
+tf.compat.v1.disable_eager_execution() #for tf.gradients 
+
 ####### Tenforflow loss function for WGAN #######
 #Loss = tf.keras.losses.Loss(reduction=losses_utils.ReductionV2.AUTO, name=None)
 
@@ -22,7 +24,7 @@ class CriticLoss(object):
         d_loss += self.gp_lambda * grad_penalty
         return d_loss
 
-#Generator loss
+#Generator loss, Test Cases Passed
 class GeneratorLoss(object):
     """ Generator Loss """
 
@@ -46,8 +48,8 @@ print("Success!")
 
 
 
-def gradient_penalty(x_interpolated):
-	gradients = tf.gradients(discriminator(x_interpolated, training=True), [x_interpolated,])[0]
+def gradient_penalty(gradients):
+	#gradients = tf.gradients(y, [x_interpolated,])[0]
 	grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1, 2, 3]))
 	grad_penalty = tf.reduce_mean(tf.square(grad_l2 - 1.0))
 	return grad_penalty 
@@ -55,8 +57,25 @@ def gradient_penalty(x_interpolated):
 
 
 
+x=tf.zeros([16,1,28,28])
+y = tf.random.normal((16,1))
+
+gradients = tf.gradients(y, [x])[0]
+print(gradients)
+# UNIT TEST
+tf.debugging.assert_near(
+	gradient_penalty(x),
+    	tf.constant(1.0)
+)
+print("Success!")
 
 
+x=tf.ones([16,1,28,28]) / tf.sqrt(784.)
+tf.debugging.assert_near(
+	gradient_penalty(x),
+    	tf.constant(0.)
+)
+print("Success!")
 
 
 
